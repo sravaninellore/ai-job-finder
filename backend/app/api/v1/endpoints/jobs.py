@@ -1,7 +1,7 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
-from app.db.session import get_db
+from app.db.session import get_db, SessionLocal
 from app.models.job import Job
 from app.models.candidate import CandidateProfile
 from app.models.preference import CandidatePreference
@@ -26,6 +26,7 @@ from app.services.collectors import (
 )
 from app.services.job_deduplicator import job_deduplicator
 from app.services.eligibility_filter import eligibility_filter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 router = APIRouter()
 
@@ -36,11 +37,8 @@ DEFAULT_GREENHOUSE_BOARDS = [
 DEFAULT_LEVER_COMPANIES = ["netflix", "palantir", "figma", "gitlab", "docker"]
 DEFAULT_ASHBY_BOARDS = ["linear", "retool", "ramp", "supabase", "vercel", "notion", "figma", "brex", "scaleai", "canva", "postman"]
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-@router.post("/trigger-ingest")
-def trigger_job_ingestion(db: Session = Depends(get_db)):
-    """Fetch jobs from 13 sources in parallel using ThreadPoolExecutor, classify, deduplicate, and save to DB."""
+def run_ingestion_in_background():
+    db = SessionLocal()
     ingested_count = 0
     duplicate_count = 0
     sources_summary = {}
@@ -70,11 +68,10 @@ def trigger_job_ingestion(db: Session = Depends(get_db)):
                 jobs = future.result(timeout=10.0)
                 sources_summary[source] = len(jobs)
                 all_jobs.extend(jobs)
-            except Exception as e:
+            except Exception:
                 sources_summary[source] = 0
 
     seen_hashes_in_batch = set()
-    unique_batch_jobs = []
 
     for item in all_jobs:
         chash = item["content_hash"]
@@ -91,14 +88,21 @@ def trigger_job_ingestion(db: Session = Depends(get_db)):
         db.add(db_job)
         ingested_count += 1
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
 
+@router.post("/trigger-ingest")
+def trigger_job_ingestion(background_tasks: BackgroundTasks):
+    """Trigger background job ingestion across 13 sources for fast HTTP response."""
+    background_tasks.add_task(run_ingestion_in_background)
     return {
-        "message": f"Parallel job ingestion completed across {len(tasks)} sources.",
-        "ingested": ingested_count,
-        "duplicates_skipped": duplicate_count,
-        "total_fetched": len(all_jobs),
-        "sources": sources_summary
+        "message": "Job ingestion task started in background across 13 sources.",
+        "status": "processing",
+        "ingested": 0
     }
 
 @router.get("", response_model=List[JobResponse])
