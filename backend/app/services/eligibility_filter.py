@@ -18,12 +18,22 @@ class JobEligibilityFilterService:
 
         # 2. Remote Scope Check
         if job.work_mode == "REMOTE":
-            if job.remote_scope in ("US_ONLY", "EU_ONLY", "REGION_RESTRICTED"):
-                if preference.allowed_remote_scopes and "WORLDWIDE" not in preference.allowed_remote_scopes and job.remote_scope not in preference.allowed_remote_scopes:
+            j_scope = (job.remote_scope or "UNKNOWN").upper()
+            if j_scope in ("US_ONLY", "EU_ONLY", "REGION_RESTRICTED"):
+                has_worldwide = any("WORLDWIDE" in s.upper() for s in (preference.allowed_remote_scopes or []))
+                if not has_worldwide and not any(j_scope in s.upper() for s in (preference.allowed_remote_scopes or [])):
                     eligible = False
-                    reasons.append(f"Remote scope is restricted to '{job.remote_scope}', which does not cover India/Worldwide preference.")
-            elif preference.allowed_remote_scopes and job.remote_scope not in preference.allowed_remote_scopes and job.remote_scope != "UNKNOWN":
-                warnings.append(f"Remote scope is '{job.remote_scope}'. Please verify regional eligibility.")
+                    reasons.append(f"Remote scope is restricted to '{job.remote_scope}', which does not cover candidate preferences.")
+            elif preference.allowed_remote_scopes and j_scope != "UNKNOWN":
+                matches = False
+                for s in preference.allowed_remote_scopes:
+                    s_upper = s.upper()
+                    if ("INDIA" in s_upper and "INDIA" in j_scope) or ("WORLDWIDE" in s_upper and "WORLDWIDE" in j_scope) or (s_upper in j_scope or j_scope in s_upper):
+                        matches = True
+                        break
+                if not matches:
+                    eligible = False
+                    reasons.append(f"Remote scope '{job.remote_scope}' does not match allowed scopes ({', '.join(preference.allowed_remote_scopes)}).")
 
         # 3. Onsite / Hybrid City Check
         if job.work_mode in ("ONSITE", "HYBRID") and preference.preferred_cities:
