@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://ai-job-finder-backend-cp2h.onrender.com/api/v1';
 
 export interface CandidateProfile {
   full_name?: string;
