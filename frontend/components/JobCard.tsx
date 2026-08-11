@@ -6,7 +6,8 @@ import {
   ExternalLink,
   MapPin,
   Flame,
-  CheckCircle2
+  CheckCircle2,
+  Bookmark
 } from 'lucide-react';
 
 interface JobCardProps {
@@ -20,9 +21,9 @@ export default function JobCard({ job, onStatusChange }: JobCardProps) {
 
   const handleStatusUpdate = async (newStatus: string) => {
     setLoading(true);
+    setStatus(newStatus);
     try {
       await updateJobStatus(job.id, newStatus);
-      setStatus(newStatus);
       if (onStatusChange) onStatusChange();
     } catch (err) {
       console.error('Failed to update status:', err);
@@ -32,7 +33,7 @@ export default function JobCard({ job, onStatusChange }: JobCardProps) {
   };
 
   const handleApplyClick = () => {
-    // Immediately mark status as APPLIED in background
+    // Immediately update status dropdown to APPLIED
     if (status !== 'APPLIED') {
       setStatus('APPLIED');
       updateJobStatus(job.id, 'APPLIED')
@@ -64,6 +65,11 @@ export default function JobCard({ job, onStatusChange }: JobCardProps) {
             {status === 'APPLIED' && (
               <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold border border-blue-500/30 flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-blue-400" /> APPLIED
+              </span>
+            )}
+            {status === 'SAVED' && (
+              <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-bold border border-indigo-500/30 flex items-center gap-1">
+                <Bookmark className="w-3 h-3 text-indigo-400" /> SAVED
               </span>
             )}
           </div>
@@ -124,7 +130,7 @@ export default function JobCard({ job, onStatusChange }: JobCardProps) {
             disabled={loading}
             className="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 font-semibold focus:outline-none focus:border-brand-500 cursor-pointer"
           >
-            <option value="NEW">Status: NEW</option>
+            <option value="NEW">🆕 Status: NEW</option>
             <option value="SAVED">⭐ SAVED</option>
             <option value="APPLIED">🚀 APPLIED</option>
             <option value="SCREENING">🔍 SCREENING</option>

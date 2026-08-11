@@ -111,6 +111,7 @@ def get_jobs(
     remote_scope: Optional[str] = Query(None),
     source: Optional[str] = Query(None),
     min_score: Optional[float] = Query(None),
+    exclude_applied: bool = Query(True),
     db: Session = Depends(get_db)
 ):
     query = db.query(Job)
@@ -148,6 +149,9 @@ def get_jobs(
         score = app_entry.match_score if app_entry else None
         rec = app_entry.match_analysis.get("recommendation") if app_entry and isinstance(app_entry.match_analysis, dict) else None
         app_status = app_entry.status if app_entry else "NEW"
+
+        if exclude_applied and app_status != "NEW":
+            continue
 
         if min_score is not None and (score is None or score < min_score):
             continue
