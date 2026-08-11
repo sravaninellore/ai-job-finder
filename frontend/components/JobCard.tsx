@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Job, updateJobStatus } from '@/lib/api';
 import {
   ExternalLink,
@@ -18,6 +18,12 @@ interface JobCardProps {
 export default function JobCard({ job, onStatusChange }: JobCardProps) {
   const [status, setStatus] = useState<string>(job.application_status || 'NEW');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (job.application_status) {
+      setStatus(job.application_status);
+    }
+  }, [job.application_status]);
 
   const handleStatusUpdate = async (newStatus: string) => {
     setLoading(true);

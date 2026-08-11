@@ -107,22 +107,22 @@ def trigger_job_ingestion(background_tasks: BackgroundTasks):
 
 @router.get("", response_model=List[JobResponse])
 def get_jobs(
-    work_mode: Optional[str] = Query(None),
-    remote_scope: Optional[str] = Query(None),
-    source: Optional[str] = Query(None),
-    min_score: Optional[float] = Query(None),
-    exclude_applied: bool = Query(True),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    work_mode: Optional[str] = None,
+    remote_scope: Optional[str] = None,
+    source: Optional[str] = None,
+    min_score: Optional[float] = None,
+    exclude_applied: bool = True
 ):
     query = db.query(Job)
 
-    if work_mode:
+    if work_mode and isinstance(work_mode, str):
         query = query.filter(Job.work_mode == work_mode.upper())
 
-    if remote_scope:
+    if remote_scope and isinstance(remote_scope, str):
         query = query.filter(Job.remote_scope == remote_scope.upper())
 
-    if source:
+    if source and isinstance(source, str):
         query = query.filter(Job.source == source.lower())
 
     candidate_db = db.query(CandidateProfile).order_by(CandidateProfile.created_at.desc()).first()
@@ -150,10 +150,10 @@ def get_jobs(
         rec = app_entry.match_analysis.get("recommendation") if app_entry and isinstance(app_entry.match_analysis, dict) else None
         app_status = app_entry.status if app_entry else "NEW"
 
-        if exclude_applied and app_status != "NEW":
+        if exclude_applied and app_status in ("APPLIED", "SAVED", "SCREENING", "INTERVIEW", "OFFER", "REJECTED"):
             continue
 
-        if min_score is not None and (score is None or score < min_score):
+        if min_score is not None and isinstance(min_score, (int, float)) and (score is None or score < min_score):
             continue
 
         resp_dict = {
